@@ -9,6 +9,9 @@
         "lint": "next lint"
     },
     "dependencies": {
+        "@chakra-ui/react": "^2.4.9",
+        "@emotion/react": "^11.10.5",
+        "@emotion/styled": "^11.10.5",
         "@lit-protocol/constants": "^2.1.16",
         "@lit-protocol/lit-node-client": "^2.1.16",
         "@lit-protocol/sdk-browser": "^1.1.242",
@@ -19,6 +22,7 @@
         "@types/react-dom": "18.0.10",
         "eslint": "8.33.0",
         "eslint-config-next": "13.1.6",
+        "framer-motion": "^9.0.0",
         "next": "13.1.6",
         "react": "18.2.0",
         "react-dom": "18.2.0",

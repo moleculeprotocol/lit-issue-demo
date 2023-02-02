@@ -1,35 +1,32 @@
-import {
-    AccsEVMParams,
-    EvmContractConditions,
-    JsonEncryptionRetrieveRequest,
-    JsonSaveEncryptionKeyRequest,
-    UnifiedAccessControlConditions,
-} from '@lit-protocol/constants';
-import {
-    checkAndSignAuthMessage,
-    decryptString,
-    encryptString,
-    uint8arrayToString,
-    LitNodeClient,
-} from '@lit-protocol/lit-node-client';
+import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import * as LitJsSdk from '@lit-protocol/sdk-browser';
 import { useState } from 'react';
+import {
+    RadioGroup,
+    Radio,
+    Stack,
+    Heading,
+    Divider,
+    Button,
+    Text,
+    VStack,
+    Input,
+} from '@chakra-ui/react';
+import { decrypt, encrypt } from '@/utils';
+import {
+    AccsEVMParams,
+    JsonEncryptionRetrieveRequest,
+    JsonSaveEncryptionKeyRequest,
+} from '@lit-protocol/constants';
 
 export default function Home() {
-    const [toggleUnified, setToggleUnified] = useState(false);
+    const [unified, setUnified] = useState('unified');
+    const [message, setMessage] = useState('Hello World');
     const [encryptionResult, setEncryptionResult] = useState<{
         encryptedString: Blob;
-        encryptedSymmetricKey: any;
+        encryptedSymmetricKey: string;
+        req: JsonSaveEncryptionKeyRequest;
     }>();
-    const [decryptionResult, setDecryptionResult] = useState('');
-
-    const tsClient = new LitNodeClient({});
-    const jsClient = new LitJsSdk.LitNodeClient({});
-
-    const [client, setClient] = useState<LitNodeClient>(jsClient);
-    const [clientToggle, setClientToggle] = useState<string>('jsClient');
-
-    const testString = 'Hello World';
     const chain = 'goerli';
 
     const accessControlConditions: AccsEVMParams[] = [
@@ -55,191 +52,116 @@ export default function Home() {
         },
     ];
 
-    async function encrypt() {
-        if (!client) throw new Error('no client');
-        if (!client.ready) {
-            await client.connect();
+    const [decryptionResult, setDecryptionResult] = useState<{
+        decryptedString: string;
+        req: JsonEncryptionRetrieveRequest;
+    }>();
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const tsClient = new LitNodeClient({});
+    const jsClient = new LitJsSdk.LitNodeClient({});
+
+    const [client, setClient] = useState('js');
+
+    async function handleEncrypt() {
+        try {
+            const c = client === 'js' ? jsClient : tsClient;
+            const u = unified === 'unified' ? true : false;
+            const res = await encrypt(c, u, message);
+            setEncryptionResult(res);
+        } catch (error: any) {
+            setError(error.message);
         }
-        const authSig = await checkAndSignAuthMessage({ chain });
-
-        const result = await encryptString(testString);
-
-        if (!result) {
-            throw new Error('Could not encrypt');
-        }
-
-        const req: JsonSaveEncryptionKeyRequest = toggleUnified
-            ? {
-                  unifiedAccessControlConditions: accessControlConditions,
-                  symmetricKey: result?.symmetricKey,
-                  authSig,
-                  chain,
-              }
-            : {
-                  evmContractConditions: accessControlConditions,
-                  symmetricKey: result?.symmetricKey,
-                  authSig,
-                  chain,
-              };
-
-        console.log('JsonSaveEncryptionKeyRequest', req);
-        const encryptedSymmetricKey = await client.saveEncryptionKey(req);
-
-        setEncryptionResult(() => {
-            return {
-                encryptedString: result.encryptedString,
-                encryptedSymmetricKey: uint8arrayToString(
-                    encryptedSymmetricKey,
-                    'base16'
-                ),
-            };
-        });
     }
 
-    async function decrypt() {
-        if (!client) throw new Error('no client');
-        if (!encryptionResult?.encryptedSymmetricKey)
-            throw new Error('nothing to decrypt');
-        if (!client.ready) {
-            await client.connect();
+    async function handleDecrypt() {
+        try {
+            if (!encryptionResult?.encryptedSymmetricKey)
+                throw new Error('No encryptedSymmetricKey');
+
+            const c = client === 'js' ? jsClient : tsClient;
+            const u = unified === 'unified' ? true : false;
+            const res = await decrypt(c, u, encryptionResult);
+            setDecryptionResult(res);
+        } catch (error: any) {
+            setError(error.message);
         }
-
-        const authSig = await checkAndSignAuthMessage({ chain });
-
-        const req: JsonEncryptionRetrieveRequest = toggleUnified
-            ? {
-                  unifiedAccessControlConditions: accessControlConditions,
-                  toDecrypt: encryptionResult.encryptedSymmetricKey,
-                  authSig,
-                  chain,
-              }
-            : {
-                  evmContractConditions: accessControlConditions,
-                  toDecrypt: encryptionResult.encryptedSymmetricKey,
-                  authSig,
-                  chain,
-              };
-
-        console.log('JsonEncryptionRetrieveRequest', req);
-        const decryptedSymmetricKey = await client.getEncryptionKey(req);
-
-        if (!decryptedSymmetricKey) {
-            throw new Error('Could not decrypt symmetric key');
-        }
-
-        const decryptedString = await decryptString(
-            encryptionResult.encryptedString,
-            decryptedSymmetricKey
-        );
-
-        if (!decryptedString) {
-            throw new Error('Could not decrypt string');
-        }
-
-        setDecryptionResult(decryptedString);
     }
+
     return (
-        <>
-            <div>
-                <button
-                    style={{
-                        backgroundColor:
-                            clientToggle === 'jsClient' ? 'green' : 'orange',
-                        width: '10rem',
-                        height: '5rem',
-                    }}
-                    onClick={() => {
-                        setClient(jsClient);
-                        setClientToggle('jsClient');
-                    }}
-                >
-                    Use Js Client
-                </button>
-                <button
-                    style={{
-                        backgroundColor:
-                            clientToggle === 'tsClient' ? 'green' : 'orange',
-                        width: '10rem',
-                        height: '5rem',
-                    }}
-                    onClick={() => {
-                        setClient(tsClient);
-                        setClientToggle('tsClient');
-                    }}
-                >
-                    Use Ts Client
-                </button>
-            </div>
-            <div></div>
-            <div>
-                <div
-                    style={{
-                        display: 'flex',
-                    }}
-                >
-                    <h3 style={{ marginRight: '1rem' }}>
-                        {toggleUnified
-                            ? 'unifiedAccessControlConditions'
-                            : 'evmContractConditions'}
-                    </h3>
-                    <button
-                        onClick={() => setToggleUnified((old) => !old)}
-                        style={{
-                            backgroundColor: toggleUnified ? 'blue' : 'purple',
-                        }}
-                    >
-                        Switch
-                    </button>
-                </div>
-                <p>Teststring: {testString}</p>
+        <VStack>
+            <Heading size="lg" mb="3">
+                Demo Lit issue
+            </Heading>
 
-                <div
-                    style={{
-                        display: 'flex',
-                    }}
+            <Heading size="md">Select Lit SDK</Heading>
+            <RadioGroup onChange={setClient} value={client}>
+                <Stack direction="column">
+                    <Radio value="js">JS Client v1.1.242</Radio>
+                    <Radio value="ts">TS Client 2.1.16</Radio>
+                </Stack>
+            </RadioGroup>
+            <Divider my="4" />
+
+            <Heading size="md">Select AccessControlConditions</Heading>
+            <RadioGroup onChange={setUnified} value={unified}>
+                <Stack direction="column">
+                    <Radio value="unified">
+                        UnifiedAccessControlConditions
+                    </Radio>
+                    <Radio value="evm">EvmContractConditions</Radio>
+                </Stack>
+            </RadioGroup>
+            <Divider my="4" />
+
+            <Heading size="md">Encrypt Message</Heading>
+            {encryptionResult?.encryptedSymmetricKey ? (
+                <Text color="green">Message encrypted sucessfully</Text>
+            ) : (
+                <>
+                    <Input
+                        onChange={(e) => setMessage(e.target.value)}
+                        value={message}
+                    />
+                    <Button colorScheme="green" onClick={handleEncrypt}>
+                        Encrypt String
+                    </Button>
+                </>
+            )}
+            <Divider my="4" />
+
+            <Heading size="md">Decrypt Message</Heading>
+            {decryptionResult ? (
+                <Text color="green">{decryptionResult.decryptedString}</Text>
+            ) : (
+                <Button
+                    colorScheme="green"
+                    disabled={!encryptionResult?.encryptedSymmetricKey}
+                    onClick={handleDecrypt}
                 >
-                    <button
-                        style={{
-                            backgroundColor: encryptionResult ? 'red' : 'green',
-                            width: '10rem',
-                            height: '3rem',
-                            marginRight: '2rem',
-                        }}
-                        onClick={encrypt}
-                    >
-                        Encrypt
-                    </button>
-                    <button
-                        style={{
-                            backgroundColor: decryptionResult ? 'red' : 'green',
-                            width: '10rem',
-                            height: '3rem',
-                            marginRight: '2rem',
-                        }}
-                        onClick={decrypt}
-                    >
-                        Decrypt
-                    </button>
-                    <button
-                        style={{
-                            backgroundColor: 'blue',
-                            width: '10rem',
-                            height: '3rem',
-                        }}
-                        onClick={() => {
-                            setEncryptionResult(undefined);
-                            setDecryptionResult('');
-                        }}
-                    >
-                        Reset
-                    </button>
-                </div>
-                <p>
-                    EncryptedSymmetricKey:
-                    {encryptionResult?.encryptedSymmetricKey}
-                </p>
-                <p>DecryptedString: {decryptionResult}</p>
-            </div>
-        </>
+                    Decrypt String
+                </Button>
+            )}
+            <Divider my="4" />
+
+            <Button
+                colorScheme="red"
+                onClick={() => {
+                    setEncryptionResult(undefined);
+                    setDecryptionResult(undefined);
+                    setError('');
+                }}
+            >
+                Reset
+            </Button>
+
+            {error && (
+                <>
+                    <Heading size="md">Error</Heading>
+                    <Text color="red">{error}</Text>
+                </>
+            )}
+        </VStack>
     );
 }
