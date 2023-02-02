@@ -14,50 +14,24 @@ import {
 } from '@chakra-ui/react';
 import { decrypt, encrypt } from '@/utils';
 import {
-    AccsEVMParams,
     JsonEncryptionRetrieveRequest,
     JsonSaveEncryptionKeyRequest,
 } from '@lit-protocol/constants';
 
 export default function Home() {
-    const [unified, setUnified] = useState('unified');
+    const [accMode, setAccMode] = useState('unified');
     const [message, setMessage] = useState('Hello World');
     const [encryptionResult, setEncryptionResult] = useState<{
         encryptedString: Blob;
         encryptedSymmetricKey: string;
         req: JsonSaveEncryptionKeyRequest;
     }>();
-    const chain = 'goerli';
-
-    const accessControlConditions: AccsEVMParams[] = [
-        {
-            conditionType: 'evmContract',
-            chain: 'goerli',
-            contractAddress: '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6',
-            functionName: 'balanceOf',
-            functionParams: [':userAddress'],
-            functionAbi: {
-                inputs: [{ name: '', type: 'address' }],
-                name: 'balanceOf',
-                outputs: [{ name: '', type: 'uint256' }],
-                payable: false,
-                stateMutability: 'view',
-                type: 'function',
-            },
-            returnValueTest: {
-                key: '',
-                comparator: '>=',
-                value: '0',
-            },
-        },
-    ];
 
     const [decryptionResult, setDecryptionResult] = useState<{
         decryptedString: string;
         req: JsonEncryptionRetrieveRequest;
     }>();
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
 
     const tsClient = new LitNodeClient({});
     const jsClient = new LitJsSdk.LitNodeClient({});
@@ -67,7 +41,7 @@ export default function Home() {
     async function handleEncrypt() {
         try {
             const c = client === 'js' ? jsClient : tsClient;
-            const u = unified === 'unified' ? true : false;
+            const u = accMode === 'unified' ? true : false;
             const res = await encrypt(c, u, message);
             setEncryptionResult(res);
         } catch (error: any) {
@@ -81,7 +55,7 @@ export default function Home() {
                 throw new Error('No encryptedSymmetricKey');
 
             const c = client === 'js' ? jsClient : tsClient;
-            const u = unified === 'unified' ? true : false;
+            const u = accMode === 'unified' ? true : false;
             const res = await decrypt(c, u, encryptionResult);
             setDecryptionResult(res);
         } catch (error: any) {
@@ -105,7 +79,7 @@ export default function Home() {
             <Divider my="4" />
 
             <Heading size="md">Select AccessControlConditions</Heading>
-            <RadioGroup onChange={setUnified} value={unified}>
+            <RadioGroup onChange={setAccMode} value={accMode}>
                 <Stack direction="column">
                     <Radio value="unified">
                         UnifiedAccessControlConditions
@@ -159,6 +133,7 @@ export default function Home() {
             {error && (
                 <>
                     <Heading size="md">Error</Heading>
+                    <Text>Please check the console</Text>
                     <Text color="red">{error}</Text>
                 </>
             )}
