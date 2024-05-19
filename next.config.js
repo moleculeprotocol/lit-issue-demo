@@ -2,6 +2,7 @@
 const webpack = require('webpack')
 
 const nextConfig = {
+  output: 'export',
   webpack: (config, options) => {
     const plugins = [
       ...config.plugins,
