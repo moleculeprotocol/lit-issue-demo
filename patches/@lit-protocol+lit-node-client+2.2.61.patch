@@ -1,0 +1,15 @@
+diff --git a/node_modules/@lit-protocol/lit-node-client/src/index.js b/node_modules/@lit-protocol/lit-node-client/src/index.js
+index 0889362..9ebc53f 100644
+--- a/node_modules/@lit-protocol/lit-node-client/src/index.js
++++ b/node_modules/@lit-protocol/lit-node-client/src/index.js
+@@ -7,8 +7,8 @@ const _LitNodeClient = require("./lib/lit-node-client");
+ // ==================== Environment ====================
+ if ((0, misc_1.isNode)()) {
+     (0, misc_1.log)('Oh hey you are running in Node.js!');
+-    const fetch = require('node-fetch');
+-    globalThis.fetch = fetch;
++    // const fetch = require('node-fetch');
++    // globalThis.fetch = fetch;
+ }
+ const LitNodeClient = _LitNodeClient.LitNodeClient;
+ if (!globalThis.LitNodeClient) {
