@@ -1,130 +1,104 @@
-import {
-    AccsEVMParams,
-    JsonEncryptionRetrieveRequest,
-    JsonSaveEncryptionKeyRequest,
-} from '@lit-protocol/constants';
-import {
-    checkAndSignAuthMessage,
-    decryptString,
-    encryptString,
-    LitNodeClient,
-    uint8arrayToString,
-} from '@lit-protocol/lit-node-client';
+"use client";
 
-const chain = 'goerli';
-export const accessControlConditions: AccsEVMParams[] = [
-    {
-        conditionType: 'evmContract',
-        chain: 'goerli',
-        contractAddress: '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6',
-        functionName: 'balanceOf',
-        functionParams: [':userAddress'],
-        functionAbi: {
-            inputs: [{ name: '', type: 'address' }],
-            name: 'balanceOf',
-            outputs: [{ name: '', type: 'uint256' }],
-            payable: false,
-            stateMutability: 'view',
-            type: 'function',
+import {
+  checkAndSignAuthMessage,
+  decryptString,
+  encryptString,
+  LitNodeClient,
+  uint8arrayToString,
+} from "@lit-protocol/lit-node-client";
+import { UnifiedAccessControlConditions,AccsEVMParams } from "@lit-protocol/types";
+
+const chain = "sepolia";
+
+const evmContractConditions: AccsEVMParams[] = [{
+    conditionType: "evmContract",
+    chain,
+    contractAddress: "0xe0D404C22228b03D5b8a715Cb569C4944BC5A27A",
+    functionName: "balanceOf",
+    functionParams: [":userAddress"],
+    functionAbi: {
+      inputs: [
+        {
+          internalType: "address",
+          name: "account",
+          type: "address",
         },
-        returnValueTest: {
-            key: '',
-            comparator: '>=',
-            value: '0',
+      ],
+      name: "balanceOf",
+      outputs: [
+        {
+          internalType: "uint256",
+          name: "",
+          type: "uint256",
         },
+      ],
+      stateMutability: "view",
+      type: "function",
     },
-];
+    returnValueTest: {
+      key: "",
+      comparator: ">=",
+      value: "0",
+    },
+  }
+]
 
-export async function encrypt(
-    client: LitNodeClient,
-    unified: boolean,
-    message: string
-) {
-    if (!client) throw new Error('no client');
-    if (!client.ready) {
-        await client.connect();
-    }
-    const authSig = await checkAndSignAuthMessage({ chain });
+const unifiedAccessControlConditions: UnifiedAccessControlConditions = evmContractConditions;
 
-    const result = await encryptString(message);
+export async function encrypt(client: LitNodeClient, message: string) {
+  const authSig = await checkAndSignAuthMessage({ chain, walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID});
+  const { encryptedString, symmetricKey } = await encryptString(message);
 
-    if (!result) {
-        throw new Error('Could not encrypt');
-    }
+  if (!encryptedString) {
+    throw new Error("Could not encrypt");
+  }
 
-    const req: JsonSaveEncryptionKeyRequest = unified
-        ? {
-              unifiedAccessControlConditions: accessControlConditions,
-              symmetricKey: result?.symmetricKey,
-              authSig,
-              chain,
-          }
-        : {
-              evmContractConditions: accessControlConditions,
-              symmetricKey: result?.symmetricKey,
-              authSig,
-              chain,
-          };
+  const encryptedSymmetricKey = await client.saveEncryptionKey({
+    //accessControlConditions: unifiedAccessControlConditions,
+    unifiedAccessControlConditions: unifiedAccessControlConditions,
+    chain,
+    authSig,
+    symmetricKey,
+  });
 
-    console.log('JsonSaveEncryptionKeyRequest', req);
-    const encryptedSymmetricKey = await client.saveEncryptionKey(req);
-
-    return {
-        encryptedString: result.encryptedString,
-        encryptedSymmetricKey: uint8arrayToString(
-            encryptedSymmetricKey,
-            'base16'
-        ),
-        req,
-    };
+  return {
+    encryptedString,
+    encryptedSymmetricKey: uint8arrayToString(encryptedSymmetricKey, "base16"),
+  };
 }
 
 export async function decrypt(
-    client: LitNodeClient,
-    unified: boolean,
-    encryptionResult: { encryptedString: Blob; encryptedSymmetricKey: string }
+  client: LitNodeClient,
+  encrypted: {
+    encryptedString: Blob;
+    encryptedSymmetricKey: string;
+  }
 ) {
-    if (!client) throw new Error('no client');
-    if (!encryptionResult?.encryptedSymmetricKey)
-        throw new Error('nothing to decrypt');
-    if (!client.ready) {
-        await client.connect();
-    }
+  const authSig = await checkAndSignAuthMessage({ chain });
 
-    const authSig = await checkAndSignAuthMessage({ chain });
+  const decryptedSymmetricKey = await client.getEncryptionKey({
+    //accessControlConditions: evmContractConditions,
+    unifiedAccessControlConditions: unifiedAccessControlConditions,
+    chain,
+    authSig,
+    toDecrypt: encrypted.encryptedSymmetricKey,
+  });
 
-    const req: JsonEncryptionRetrieveRequest = unified
-        ? {
-              unifiedAccessControlConditions: accessControlConditions,
-              toDecrypt: encryptionResult.encryptedSymmetricKey,
-              authSig,
-              chain,
-          }
-        : {
-              evmContractConditions: accessControlConditions,
-              toDecrypt: encryptionResult.encryptedSymmetricKey,
-              authSig,
-              chain,
-          };
+  if (!decryptedSymmetricKey) {
+    throw new Error("Could not decrypt symmetric key");
+  }
 
-    console.log('JsonEncryptionRetrieveRequest', req);
-    const decryptedSymmetricKey = await client.getEncryptionKey(req);
+  const decryptedString = await decryptString(
+    encrypted.encryptedString,
+    decryptedSymmetricKey
+  );
 
-    if (!decryptedSymmetricKey) {
-        throw new Error('Could not decrypt symmetric key');
-    }
+  if (!decryptedString) {
+    throw new Error("Could not decrypt string");
+  }
 
-    const decryptedString = await decryptString(
-        encryptionResult.encryptedString,
-        decryptedSymmetricKey
-    );
-
-    if (!decryptedString) {
-        throw new Error('Could not decrypt string');
-    }
-
-    return {
-        decryptedString,
-        req,
-    };
+  return {
+    decryptedString,
+  };
 }
