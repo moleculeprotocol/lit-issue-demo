@@ -1,10 +1,12 @@
 "use client"
 import { decrypt, encrypt } from "@/utils";
-import { Button, Code, Heading, Input, Text, Textarea, VStack } from "@chakra-ui/react";
+import { Button, HStack, Heading, Input, Text, Textarea, VStack } from "@chakra-ui/react";
 import { LitNodeClient } from "@lit-protocol/lit-node-client";
 import { useCallback, useEffect, useState } from "react";
+import { Radio, RadioGroup } from '@chakra-ui/react'
 
 export default function Home() {
+    const [litNetwork, setLitNetwork] = useState<"serrano" | "jalapeno">("jalapeno");
   const [client, setClient] = useState<LitNodeClient>();
   const [message, setMessage] = useState("Hello World");
   const [error, setError] = useState("");
@@ -19,14 +21,15 @@ export default function Home() {
   }>();
 
   useEffect(() => {
+    setClient(undefined)
     const _client = new LitNodeClient({
-      litNetwork: "jalapeno",
+      litNetwork,
       debug: true,
     });
     _client.connect().then(() => {
       setClient(_client);
     });
-  }, []);
+  }, [litNetwork]);
 
   const handleEncrypt = useCallback(async () => {
     if (!client) throw new Error("No client");
@@ -58,6 +61,13 @@ export default function Home() {
       </Heading>
 
       <Heading size="md">Encrypt Message</Heading>
+      <RadioGroup onChange={(v) => setLitNetwork(v as typeof litNetwork)} value={litNetwork}>
+      <HStack >
+        <Radio value='jalapeno'>Jalapeno</Radio>
+        <Radio value='serrano'>Serrano</Radio>
+      </HStack>
+    </RadioGroup>
+
       <Input onChange={(e) => setMessage(e.target.value)} value={message} />
       <Button colorScheme="green" onClick={handleEncrypt} isDisabled={!client}>
         Encrypt String

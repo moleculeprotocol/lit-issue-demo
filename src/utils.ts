@@ -47,7 +47,7 @@ const evmContractConditions: AccsEVMParams[] = [{
 const unifiedAccessControlConditions: UnifiedAccessControlConditions = evmContractConditions;
 
 export async function encrypt(client: LitNodeClient, message: string) {
-  const authSig = await checkAndSignAuthMessage({ chain });
+  const authSig = await checkAndSignAuthMessage({ chain, walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID});
   const { encryptedString, symmetricKey } = await encryptString(message);
 
   if (!encryptedString) {
@@ -55,7 +55,7 @@ export async function encrypt(client: LitNodeClient, message: string) {
   }
 
   const encryptedSymmetricKey = await client.saveEncryptionKey({
-    //accessControlConditions: evmContractConditions,
+    //accessControlConditions: unifiedAccessControlConditions,
     unifiedAccessControlConditions: unifiedAccessControlConditions,
     chain,
     authSig,
