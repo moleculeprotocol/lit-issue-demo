@@ -2,16 +2,20 @@
 
 import {
   checkAndSignAuthMessage,
-  decryptString,
+  decryptToString,
   encryptString,
   LitNodeClient,
   uint8arrayToString,
 } from "@lit-protocol/lit-node-client";
-import { UnifiedAccessControlConditions,AccsEVMParams } from "@lit-protocol/types";
+import {
+  UnifiedAccessControlConditions,
+  AccsEVMParams,
+} from "@lit-protocol/types";
 
 const chain = "sepolia";
 
-const evmContractConditions: AccsEVMParams[] = [{
+const evmContractConditions: AccsEVMParams[] = [
+  {
     conditionType: "evmContract",
     chain,
     contractAddress: "0xe0D404C22228b03D5b8a715Cb569C4944BC5A27A",
@@ -41,64 +45,65 @@ const evmContractConditions: AccsEVMParams[] = [{
       comparator: ">=",
       value: "0",
     },
-  }
-]
+  },
+];
 
-const unifiedAccessControlConditions: UnifiedAccessControlConditions = evmContractConditions;
+const unifiedAccessControlConditions: UnifiedAccessControlConditions =
+  evmContractConditions;
 
-export async function encrypt(client: LitNodeClient, message: string) {
-  const authSig = await checkAndSignAuthMessage({ chain, walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID});
-  const { encryptedString, symmetricKey } = await encryptString(message);
+export async function encrypt(
+  client: LitNodeClient,
+  message: string,
+  nonce: string
+) {
+  const authSig = await checkAndSignAuthMessage({
+    chain,
+    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID,
+    nonce,
+  });
+  const { ciphertext, dataToEncryptHash } = await encryptString(
+    {
+      chain,
+      authSig,
+      unifiedAccessControlConditions: unifiedAccessControlConditions,
+      dataToEncrypt: message,
+    },
+    client
+  );
 
-  if (!encryptedString) {
+  if (!ciphertext) {
     throw new Error("Could not encrypt");
   }
 
-  const encryptedSymmetricKey = await client.saveEncryptionKey({
-    //accessControlConditions: unifiedAccessControlConditions,
-    unifiedAccessControlConditions: unifiedAccessControlConditions,
-    chain,
-    authSig,
-    symmetricKey,
-  });
-
   return {
-    encryptedString,
-    encryptedSymmetricKey: uint8arrayToString(encryptedSymmetricKey, "base16"),
+    ciphertext,
+    dataToEncryptHash,
   };
 }
 
 export async function decrypt(
   client: LitNodeClient,
+  nonce: string,
   encrypted: {
-    encryptedString: Blob;
-    encryptedSymmetricKey: string;
+    ciphertext: string;
+    dataToEncryptHash: string;
   }
 ) {
-  const authSig = await checkAndSignAuthMessage({ chain });
+  const authSig = await checkAndSignAuthMessage({ chain, nonce });
 
-  const decryptedSymmetricKey = await client.getEncryptionKey({
-    //accessControlConditions: evmContractConditions,
-    unifiedAccessControlConditions: unifiedAccessControlConditions,
-    chain,
-    authSig,
-    toDecrypt: encrypted.encryptedSymmetricKey,
-  });
-
-  if (!decryptedSymmetricKey) {
-    throw new Error("Could not decrypt symmetric key");
-  }
-
-  const decryptedString = await decryptString(
-    encrypted.encryptedString,
-    decryptedSymmetricKey
+  const decryptedString = await decryptToString(
+    {
+      chain,
+      authSig,
+      unifiedAccessControlConditions: unifiedAccessControlConditions,
+      ...encrypted
+    },
+    client
   );
 
   if (!decryptedString) {
     throw new Error("Could not decrypt string");
   }
 
-  return {
-    decryptedString,
-  };
+  return decryptedString;
 }

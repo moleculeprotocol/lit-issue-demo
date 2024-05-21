@@ -4,55 +4,57 @@ import { Button, HStack, Heading, Input, Text, Textarea, VStack } from "@chakra-
 import { LitNodeClient } from "@lit-protocol/lit-node-client";
 import { useCallback, useEffect, useState } from "react";
 import { Radio, RadioGroup } from '@chakra-ui/react'
+import * as LitJsSdk from "@lit-protocol/lit-node-client";
+import { LitNetwork } from "@lit-protocol/constants";
 
 export default function Home() {
-    const [litNetwork, setLitNetwork] = useState<"serrano" | "jalapeno">("jalapeno");
+  const [litNetwork, setLitNetwork] = useState<LitNetwork.Cayenne | LitNetwork.Habanero | LitNetwork.Manzano>(LitNetwork.Cayenne);
   const [client, setClient] = useState<LitNodeClient>();
   const [message, setMessage] = useState("Hello World");
+  const [nonce, setNonce] = useState(new Date().toISOString());
   const [error, setError] = useState("");
 
-  const [encryptionResult, setEncryptionResult] = useState<{
-    encryptedString: Blob;
-    encryptedSymmetricKey: string;
-  }>();
-
-  const [decryptionResult, setDecryptionResult] = useState<{
-    decryptedString: string;
-  }>();
+  const [encryptionResult, setEncryptionResult] = useState<{ ciphertext: string, dataToEncryptHash: string }>();
+  const [decryptionResult, setDecryptionResult] = useState<string>();
 
   useEffect(() => {
-    setClient(undefined)
-    const _client = new LitNodeClient({
-      litNetwork,
-      debug: true,
-    });
-    _client.connect().then(() => {
+    (async() => {
+      setClient(undefined)
+      const _client = new LitNodeClient({
+        litNetwork,
+        debug: true,
+      });
+      //https://developer.litprotocol.com/v3/sdk/installation#sdk-installed-for-client-side-usage
+      await _client.disconnect();
+      await _client.connect()
       setClient(_client);
-    });
+      const nonce = await _client.getLatestBlockhash();
+        setNonce(nonce)
+    })();
   }, [litNetwork]);
 
   const handleEncrypt = useCallback(async () => {
     if (!client) throw new Error("No client");
     try {
-      const res = await encrypt(client, message);
+      const res = await encrypt(client, message, nonce);
       setEncryptionResult(res);
     } catch (error: any) {
       setError(error.message);
     }
-  }, [client]);
+  }, [client, message, nonce]);
 
   const handleDecrypt = useCallback(async () => {
     if (!client) throw new Error("No client");
     try {
-      if (!encryptionResult?.encryptedSymmetricKey)
-        throw new Error("No encryptedSymmetricKey");
+      if (!encryptionResult?.ciphertext)
+        throw new Error("No encrypted data");
 
-      const res = await decrypt(client, encryptionResult);
-      setDecryptionResult(res);
+      const decryptedString = await decrypt(client, nonce, encryptionResult);
+      setDecryptionResult(decryptedString);
     } catch (error: any) {
       setError(error.message);
     }
-  }, [client, encryptionResult]);
+  }, [client, encryptionResult, nonce]);
 
   return (
     <VStack>
@@ -63,8 +65,9 @@ export default function Home() {
       <Heading size="md">Encrypt Message</Heading>
       <RadioGroup onChange={(v) => setLitNetwork(v as typeof litNetwork)} value={litNetwork}>
       <HStack >
-        <Radio value='jalapeno'>Jalapeno</Radio>
-        <Radio value='serrano'>Serrano</Radio>
+        <Radio value='cayenne'>Cayenne</Radio>
+        <Radio value='manzano'>Manzano</Radio>
+        <Radio value='habanero'>Habenero</Radio>
       </HStack>
     </RadioGroup>
 
@@ -73,23 +76,24 @@ export default function Home() {
         Encrypt String
       </Button>
 
-      {encryptionResult?.encryptedSymmetricKey && (
+      {encryptionResult?.ciphertext && (
         <>
           <Text color="green">Message encrypted</Text>
-          <Textarea defaultValue={encryptionResult.encryptedSymmetricKey} />
+          <Input isDisabled value={encryptionResult.dataToEncryptHash} />
+          <Textarea defaultValue={encryptionResult.ciphertext} />
         </>
       )}
 
       <Heading size="md">Decrypt Message</Heading>
       <Button
         colorScheme="green"
-        isDisabled={!encryptionResult?.encryptedSymmetricKey}
+        isDisabled={!encryptionResult?.ciphertext}
         onClick={handleDecrypt}
       >
         Decrypt String
       </Button>
       {decryptionResult && (
-        <Text color="green">{decryptionResult.decryptedString}</Text>
+        <Text color="green">{decryptionResult}</Text>
       )}
 
       <Button
