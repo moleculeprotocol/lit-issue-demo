@@ -13,20 +13,22 @@
         "@chakra-ui/react": "^2.8.2",
         "@emotion/react": "^11.11.4",
         "@emotion/styled": "^11.11.5",
-        "@lit-protocol/constants": "2.2.62",
-        "@lit-protocol/lit-node-client": "2.2.62",
+        "@lit-protocol/auth-helpers": "^5.1.0",
+        "@lit-protocol/constants": "^5.1.0",
+        "@lit-protocol/contracts-sdk": "^5.1.0",
+        "@lit-protocol/lit-node-client": "^5.1.0",
         "framer-motion": "^11.2.4",
-        "react": "^18",
-        "react-dom": "^18",
         "next": "^13",
-        "pino-pretty": "^11.0.0"
+        "pino-pretty": "^11.0.0",
+        "react": "^18",
+        "react-dom": "^18"
     },
     "devDependencies": {
-        "typescript": "^5",
         "@types/node": "^20",
         "@types/react": "^18",
         "@types/react-dom": "^18",
         "eslint": "^8",
-        "eslint-config-next": "^13"
+        "eslint-config-next": "^13",
+        "typescript": "^5"
     }
 }
